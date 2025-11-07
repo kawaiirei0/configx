@@ -22,6 +22,8 @@ go mod tidy
 
 ### 基本使用
 
+具体请查看示例代码
+
 ```go
 package main
 
@@ -69,10 +71,8 @@ app:
 
 ```go
 option := config.NewOption()
-option.Filename.Set("myconfig")     // 配置文件名（默认：config）
-option.FileType.Set("yaml")         // 文件类型（默认：yaml）
-option.Path.Set("./config")         // 配置路径（默认：./configs）
-option.Env.Set("prod")              // 环境标识（默认：dev）
+option.Filename.Set("myconfig.yaml")     // 配置文件名（默认：config.dev.yaml）
+option.Filepath.Set("./config")         // 配置路径（默认：./configs）
 option.DebounceDur.Set(1000)        // 防抖间隔，毫秒（默认：800ms）
 
 manager := config.Default()
@@ -85,8 +85,9 @@ manager.SetOption(option)
 
 ```go
 manager := config.Default()
-manager.StartMonitor() // 启动文件监控
+manager.Init()
 
+// 初始化会默认开启监听
 // 配置文件变更时会自动重新加载
 // 防抖机制会避免频繁重载
 ```

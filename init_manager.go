@@ -5,18 +5,22 @@ import (
 )
 
 func (m *Manager) SetOption(opts *Option) {
-	// 初始化设置选项默认值
-	if opts != nil {
-		opts.setDefaultValue()
-	} else {
-		opts = NewOption()
+	if !m.optsInit {
+		// 标记已初始化option
+		m.optsInit = true
+		// 初始化设置选项默认值
+		if opts != nil {
+			opts.setDefaultValue()
+		} else {
+			opts = NewOption()
+		}
+		m.opts = opts
 	}
-	m.opts = opts
 }
 
 func (m *Manager) Init(handles ...HandlerFunc) error {
 	// 如果option不存在配置则设置默认选项
-	// m.opts.setDefaultValue()
+	m.SetOption(nil)
 
 	// hook init
 	m.hooks.Handles[InitHook].Exec(HookContext{
@@ -26,18 +30,20 @@ func (m *Manager) Init(handles ...HandlerFunc) error {
 	// setting debouncedur
 	m.debounceDur = m.opts.DebounceDur.ToValue()
 
-	absPath := filepathAbs(m.opts.Path.ToValue())
+	inFile := m.opts.File()
 
-	m.vp.SetConfigType(m.opts.FileType.ToValue()) // 设置文件类型
-	// 根据环境加载不同配置文件 设置文件名
-	if m.opts.Env != "" {
-		// 设置文件名.环境名
-		m.vp.SetConfigName(fmt.Sprintf("%s.%s", m.opts.Filename, m.opts.Env))
-	} else {
-		// 设置文件名
-		m.vp.SetConfigName(m.opts.Filename.ToValue())
-	}
-	m.vp.AddConfigPath(absPath) // 设置文件路径
+	m.vp.SetConfigFile(inFile)
+
+	// m.vp.SetConfigType(m.opts.FileType.ToValue()) // 设置文件类型
+	// // 根据环境加载不同配置文件 设置文件名
+	// if m.opts.Env != "" {
+	// 	// 设置文件名.环境名
+	// 	m.vp.SetConfigName(fmt.Sprintf("%s.%s", m.opts.Filename, m.opts.Env))
+	// } else {
+	// 	// 设置文件名
+	// 	m.vp.SetConfigName(m.opts.Filename.ToValue())
+	// }
+	// m.vp.AddConfigPath(absPath) // 设置文件路径
 
 	// 如果文件不存在，则创建默认配置文件
 	if err := m.ensureConfigFile(m.opts); err != nil {

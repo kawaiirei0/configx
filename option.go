@@ -1,12 +1,16 @@
 package config
 
-import "time"
+import (
+	"config/utils"
+	"time"
+)
 
 type Option struct {
+	value       string
+	pathValue   string
+	fileValue   string
 	Filename    OptionString
-	FileType    OptionString
-	Path        OptionString
-	Env         OptionString
+	Filepath    OptionString
 	DebounceDur OptionTimeDuration
 }
 
@@ -20,9 +24,10 @@ func NewOption() *Option {
 // 初始化默认值
 func (s *Option) setDefaultValue() *Option {
 	s.Filename.Set(OptionFilename, false)
-	s.FileType.Set(OptionFileType, false)
-	s.Path.Set(OptionPath, false)
-	s.Env.Set(OptionEnv, false)
+	s.Filepath.Set(OptionFilepath, false)
+	// s.FileType.Set(OptionFileType, false)
+	// s.Path.Set(OptionPath, false)
+	// s.Env.Set(OptionEnv, false)
 	s.DebounceDur.Set(OptionTimeDuration(OptionDebounceDur), false)
 	return s
 }
@@ -56,4 +61,20 @@ func (o *OptionTimeDuration) Set(newDate OptionTimeDuration, reset ...bool) {
 
 func (o *OptionTimeDuration) ToValue() time.Duration {
 	return time.Duration(*o)
+}
+
+func (s *Option) File() string {
+	if s.fileValue != "" {
+		return s.fileValue
+	}
+	s.fileValue = utils.ConfigPath(s.Filepath.ToValue(), s.Filename.ToValue(), true)
+	return s.File()
+}
+
+func (s *Option) Path() string {
+	if s.pathValue != "" {
+		return s.pathValue
+	}
+	s.pathValue = utils.ConfigPath(s.Filepath.ToValue(), "", true)
+	return s.Path()
 }

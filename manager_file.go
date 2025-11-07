@@ -10,15 +10,12 @@ import (
 
 // 在 Manager.Init() 中增加判断
 func (m *Manager) ensureConfigFile(opts *Option) error {
-	absPath, _ := filepath.Abs(opts.Path.ToValue())
+	absPath, _ := filepath.Abs(opts.Path())
 	if err := os.MkdirAll(absPath, 0755); err != nil {
 		return fmt.Errorf("failed to create config dir: %w", err)
 	}
 
-	cfgFile := filepath.Join(
-		absPath,
-		fmt.Sprintf("%s.%s.%s", opts.Filename.ToValue(), opts.Env.ToValue(), opts.FileType.ToValue()),
-	)
+	cfgFile := opts.File()
 
 	_, err := os.Stat(cfgFile)
 	if os.IsNotExist(err) {

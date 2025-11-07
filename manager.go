@@ -15,7 +15,9 @@ type Manager struct {
 	lastChange          time.Time     // 上次触发时间（用于防抖）
 	debounceDur         time.Duration // 防抖间隔
 	hooks               *Hook         // hook
+	pathName            string        // 配置文件
 	opts                *Option       // 设置选项
+	optsInit            bool          // 初始化选项
 	validateConfigValue bool          // 验证
 	defaultConfig       any           // default config
 }

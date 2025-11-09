@@ -1,4 +1,4 @@
-package config
+package configx
 
 func (m *Manager) validateConfig(ok ...bool) bool {
 	if len(ok) != 0 {

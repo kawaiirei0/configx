@@ -1,7 +1,7 @@
-package config
+package configx
 
 import (
-	"config/configure"
+	"github.com/kawaiirei0/configx/configure"
 )
 
 // Config 应用配置结构

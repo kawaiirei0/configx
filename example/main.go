@@ -1,9 +1,10 @@
 package main
 
 import (
-	"config"
-	"config/utils"
 	"fmt"
+	"github.com/kawaiirei0/configx"
+
+	"github.com/kawaiirei0/configx/utils"
 )
 
 type Logger struct {
@@ -38,33 +39,33 @@ func main() {
 	log := NewLogger()
 
 	// setting config hook
-	config.SetHook(config.Info, func(ctx config.HookContext) {
+	configx.SetHook(configx.Info, func(ctx configx.HookContext) {
 		log.Info("正在初始化配置...")
-	}).SetHook(config.Debug, func(ctx config.HookContext) {
+	}).SetHook(configx.Debug, func(ctx configx.HookContext) {
 		log.Debug(ctx.Message)
-	}).SetHook(config.Info, func(ctx config.HookContext) {
+	}).SetHook(configx.Info, func(ctx configx.HookContext) {
 		log.Info(ctx.Message)
-	}).SetHook(config.Warn, func(ctx config.HookContext) {
+	}).SetHook(configx.Warn, func(ctx configx.HookContext) {
 		log.Warn(ctx.Message)
-	}).SetHook(config.Error, func(ctx config.HookContext) {
+	}).SetHook(configx.Error, func(ctx configx.HookContext) {
 		log.Error(ctx.Message)
 	})
 
 	// 设置配置选项
-	opts := config.NewOption()
-	opts.Filename.Set("config.dev.json")                     // production | development
-	opts.Filepath.Set("./configs")                           // 设置文件夹
-	opts.DebounceDur.Set(800 * config.OptionDateMillisecond) // 设置防抖
+	opts := configx.NewOption()
+	opts.Filename.Set("config.dev.json")                      // production | development
+	opts.Filepath.Set("./configs")                            // 设置文件夹
+	opts.DebounceDur.Set(800 * configx.OptionDateMillisecond) // 设置防抖
 
 	path := utils.ConfigPath(".qwq", "config.toml", true)
 	fmt.Println("配置文件路径:", path)
 
 	// 实例化配置管理器
-	manager := config.Default()
+	manager := configx.Default()
 
 	manager.SetOption(opts)
 
-	if err := manager.Init(func(ctx *config.Context) {
+	if err := manager.Init(func(ctx *configx.Context) {
 		log.Debug("配置文件更新了")
 	}); err != nil {
 		log.Error(fmt.Sprintf("初始化配置失败 Error: %s", err.Error()))

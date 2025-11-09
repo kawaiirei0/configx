@@ -1,7 +1,7 @@
 package configx
 
 import (
-	"github.com/kawaiirei0/configx/utils"
+	"github.com/kawaiirei0/configx/v2/utils"
 	"time"
 )
 

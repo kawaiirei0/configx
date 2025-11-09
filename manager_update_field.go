@@ -7,18 +7,12 @@ import (
 	"strings"
 )
 
-// UpdateField 更新配置字段
-// 参数：
-//
-//	updateFunc: 更新函数
-//
-// 返回值：
-//
-//	error: 更新过程中的错误
-func UpdateField(updateFunc func(*Config)) error {
-	m := Default()
-	return m.UpdateField(updateFunc)
-}
+// UpdateField is deprecated - use Manager.UpdateField instead
+// Global singleton removed due to Go generics limitations
+// func UpdateField(updateFunc func(*Config)) error {
+// 	m := Default()
+// 	return m.UpdateField(updateFunc)
+// }
 
 // UpdateField 更新配置字段
 // 参数：
@@ -28,7 +22,7 @@ func UpdateField(updateFunc func(*Config)) error {
 // 返回值：
 //
 //	error: 更新过程中的错误
-func (m *Manager) UpdateField(updateFunc func(*Config)) error {
+func (m *Manager[T]) UpdateField(updateFunc func(*T)) error {
 	m.rwMutex.Lock()
 	defer m.rwMutex.Unlock()
 

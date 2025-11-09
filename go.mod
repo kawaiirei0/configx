@@ -1,4 +1,4 @@
-module github.com/kawaiirei0/configx
+module github.com/kawaiirei0/configx/v2
 
 go 1.24.5
 

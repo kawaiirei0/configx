@@ -4,7 +4,12 @@ import (
 	"fmt"
 )
 
-func (m *Manager) SetOption(opts *Option) {
+// SetOption 设置配置选项
+// 参数：
+//   opts: 配置选项，如果为 nil 则使用默认选项
+// 返回值：
+//   *Manager[T]: 返回管理器实例以支持链式调用
+func (m *Manager[T]) SetOption(opts *Option) *Manager[T] {
 	if !m.optsInit {
 		// 标记已初始化option
 		m.optsInit = true
@@ -16,9 +21,15 @@ func (m *Manager) SetOption(opts *Option) {
 		}
 		m.opts = opts
 	}
+	return m
 }
 
-func (m *Manager) Init(handles ...HandlerFunc) error {
+// Init 初始化配置管理器并启动热重载监控
+// 参数：
+//   handles: 配置变更时的回调函数列表
+// 返回值：
+//   error: 初始化失败时返回错误
+func (m *Manager[T]) Init(handles ...HandlerFunc) error {
 	// 如果option不存在配置则设置默认选项
 	m.SetOption(nil)
 
@@ -33,17 +44,6 @@ func (m *Manager) Init(handles ...HandlerFunc) error {
 	inFile := m.opts.File()
 
 	m.vp.SetConfigFile(inFile)
-
-	// m.vp.SetConfigType(m.opts.FileType.ToValue()) // 设置文件类型
-	// // 根据环境加载不同配置文件 设置文件名
-	// if m.opts.Env != "" {
-	// 	// 设置文件名.环境名
-	// 	m.vp.SetConfigName(fmt.Sprintf("%s.%s", m.opts.Filename, m.opts.Env))
-	// } else {
-	// 	// 设置文件名
-	// 	m.vp.SetConfigName(m.opts.Filename.ToValue())
-	// }
-	// m.vp.AddConfigPath(absPath) // 设置文件路径
 
 	// 如果文件不存在，则创建默认配置文件
 	if err := m.ensureConfigFile(m.opts); err != nil {
@@ -73,7 +73,7 @@ func (m *Manager) Init(handles ...HandlerFunc) error {
 		return err
 	}
 
-	// 监听配置变更
+	// 监听配置变更，传递回调函数
 	m.monitorConfigChanges(handles)
 
 	// 验证配置通过

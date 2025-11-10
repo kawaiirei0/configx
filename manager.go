@@ -3,6 +3,7 @@ package configx
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -113,24 +114,24 @@ func (m *Manager[T]) LoadConfig() error {
 //	error: 序列化或反序列化失败时返回错误
 func (m *Manager[T]) jsonDeepCopy() (T, error) {
 	var zero T
-	
+
 	// 序列化
 	data, err := json.Marshal(*m.config)
 	if err != nil {
 		return zero, fmt.Errorf("序列化配置失败: %w", err)
 	}
-	
+
 	// 反序列化
 	var copy T
 	if err := json.Unmarshal(data, &copy); err != nil {
 		return zero, fmt.Errorf("反序列化配置失败: %w", err)
 	}
-	
+
 	return copy, nil
 }
 
 // setupViper 配置 Viper 实例
-// 设置配置文件路径、文件名和文件类型
+// 设置配置文件路径、文件名、文件类型和环境变量
 // 此方法与泛型 Manager[T] 完全兼容，保持文件路径、文件名、文件类型的配置逻辑
 // 返回值：
 //
@@ -148,8 +149,29 @@ func (m *Manager[T]) setupViper() error {
 	// 设置配置文件路径（线程安全地读取）
 	m.optsMutex.Lock()
 	inFile := m.opts.File()
+
+	// 配置环境变量支持
+	if m.opts.AutomaticEnv {
+		m.vp.AutomaticEnv()
+	}
+
+	if m.opts.EnvPrefix.ToValue() != "" {
+		m.vp.SetEnvPrefix(m.opts.EnvPrefix.ToValue())
+	}
+
+	if m.opts.EnvKeyReplacer != nil {
+		// Viper 的 SetEnvKeyReplacer 接受 *strings.Replacer
+		if replacer, ok := m.opts.EnvKeyReplacer.(*strings.Replacer); ok {
+			m.vp.SetEnvKeyReplacer(replacer)
+		}
+	}
+
+	m.vp.AllowEmptyEnv(m.opts.AllowEmptyEnv)
 	m.optsMutex.Unlock()
 
+	// 设置配置文件
+	// Viper 会自动根据文件扩展名识别格式：
+	// .json, .toml, .yaml, .yml, .properties, .props, .prop, .hcl, .ini
 	m.vp.SetConfigFile(inFile)
 
 	return nil
@@ -157,8 +179,10 @@ func (m *Manager[T]) setupViper() error {
 
 // executeHook 执行钩子处理函数（线程安全）
 // 参数：
-//   pattern: 钩子级别
-//   ctx: 钩子上下文
+//
+//	pattern: 钩子级别
+//	ctx: 钩子上下文
+//
 // 功能：
 //   - 使用读锁保护钩子的读取
 //   - 在锁外执行钩子函数，避免死锁
@@ -174,10 +198,14 @@ func (m *Manager[T]) executeHook(pattern HookPattern, ctx HookContext) {
 
 // SetHook 设置钩子处理函数
 // 参数：
-//   pattern: 钩子级别（Debug, Info, Warn, Error）
-//   handler: 钩子处理函数
+//
+//	pattern: 钩子级别（Debug, Info, Warn, Error）
+//	handler: 钩子处理函数
+//
 // 返回值：
-//   *Manager[T]: 返回管理器实例以支持链式调用
+//
+//	*Manager[T]: 返回管理器实例以支持链式调用
+//
 // 功能：
 //   - 支持设置不同级别的钩子
 //   - 保持现有的钩子级别（Debug, Info, Warn, Error）
@@ -187,5 +215,36 @@ func (m *Manager[T]) SetHook(pattern HookPattern, handler HookHandlerFunc) *Mana
 	m.hookMutex.Lock()
 	defer m.hookMutex.Unlock()
 	m.hooks.SetHook(pattern, handler)
+	return m
+}
+
+// BindEnv 绑定特定的配置键到环境变量
+// 参数：
+//
+//	key: 配置键名，例如 "database.host"
+//	envKeys: 可选的环境变量名，如果不提供则自动生成
+//
+// 示例：
+//
+//	manager.BindEnv("api.key", "API_KEY")
+//	manager.BindEnv("database.password") // 自动使用 DATABASE_PASSWORD
+func (m *Manager[T]) BindEnv(key string, envKeys ...string) error {
+	if len(envKeys) > 0 {
+		return m.vp.BindEnv(key, envKeys[0])
+	}
+	return m.vp.BindEnv(key)
+}
+
+// SetEnvPrefix 设置环境变量前缀（便捷方法）
+// 这是 Option.SetEnvPrefix 的快捷方式
+func (m *Manager[T]) SetEnvPrefix(prefix string) *Manager[T] {
+	m.vp.SetEnvPrefix(prefix)
+	return m
+}
+
+// AutomaticEnv 启用自动环境变量读取（便捷方法）
+// 启用后，所有配置项都会自动尝试从环境变量读取
+func (m *Manager[T]) AutomaticEnv() *Manager[T] {
+	m.vp.AutomaticEnv()
 	return m
 }

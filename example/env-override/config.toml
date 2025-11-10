@@ -1,0 +1,19 @@
+[app]
+name = "EnvOverrideApp"
+version = "1.0.0"
+debug = false
+
+[server]
+host = "localhost"
+port = 8080
+
+[database]
+host = "localhost"
+port = 5432
+username = "user"
+password = "default_password"
+
+[api]
+key = "default_api_key"
+secret = "default_secret"
+timeout = 30

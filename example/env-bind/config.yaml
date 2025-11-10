@@ -1,0 +1,23 @@
+app:
+  name: "SecureApp"
+  version: "2.0.0"
+
+database:
+  host: "localhost"
+  port: 5432
+  username: "dbuser"
+  password: "should_be_overridden"
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: "should_be_overridden"
+
+jwt:
+  secret: "should_be_overridden"
+  expiry: 3600
+
+aws:
+  access_key: "should_be_overridden"
+  secret_key: "should_be_overridden"
+  region: "us-east-1"

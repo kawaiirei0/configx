@@ -9,7 +9,12 @@ import (
 //   opts: 配置选项，如果为 nil 则使用默认选项
 // 返回值：
 //   *Manager[T]: 返回管理器实例以支持链式调用
+// 功能：
+//   - 线程安全的选项初始化
 func (m *Manager[T]) SetOption(opts *Option) *Manager[T] {
+	m.optsMutex.Lock()
+	defer m.optsMutex.Unlock()
+
 	if !m.optsInit {
 		// 标记已初始化option
 		m.optsInit = true
@@ -34,20 +39,22 @@ func (m *Manager[T]) Init(handles ...HandlerFunc) error {
 	m.SetOption(nil)
 
 	// hook init
-	m.hooks.Handles[InitHook].Exec(HookContext{
+	m.executeHook(InitHook, HookContext{
 		Message: "开始初始化",
 	})
 
-	// setting debouncedur
+	// setting debouncedur and file path (线程安全地读取 opts)
+	m.optsMutex.Lock()
 	m.debounceDur = m.opts.DebounceDur.ToValue()
-
 	inFile := m.opts.File()
+	opts := m.opts
+	m.optsMutex.Unlock()
 
 	m.vp.SetConfigFile(inFile)
 
 	// 如果文件不存在，则创建默认配置文件
-	if err := m.ensureConfigFile(m.opts); err != nil {
-		m.hooks.Handles[Error].Exec(HookContext{
+	if err := m.ensureConfigFile(opts); err != nil {
+		m.executeHook(Error, HookContext{
 			Message: fmt.Sprintf("[config] 创建默认配置文件失败: %v", err),
 		})
 		return err
@@ -55,19 +62,19 @@ func (m *Manager[T]) Init(handles ...HandlerFunc) error {
 
 	// 读取配置文件
 	if err := m.vp.ReadInConfig(); err != nil {
-		m.hooks.Handles[Error].Exec(HookContext{
+		m.executeHook(Error, HookContext{
 			Message: fmt.Sprintf("[config] 加载配置失败: %v", err),
 		})
 		return err
 	}
 
-	m.hooks.Handles[Info].Exec(HookContext{
+	m.executeHook(Info, HookContext{
 		Message: fmt.Sprintf("[config] 已加载配置文件: %s", m.vp.ConfigFileUsed()),
 	})
 
 	// 解析配置到结构体
 	if err := m.Unmarshal(); err != nil {
-		m.hooks.Handles[Error].Exec(HookContext{
+		m.executeHook(Error, HookContext{
 			Message: fmt.Sprintf("[config] 解析配置到结构体失败 Error: %s", err.Error()),
 		})
 		return err

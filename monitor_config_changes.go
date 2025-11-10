@@ -13,7 +13,7 @@ import (
 func (m *Manager[T]) Unmarshal() error {
 	var newConfig T
 	if err := m.vp.Unmarshal(&newConfig); err != nil {
-		m.hooks.Handles[Error].Exec(HookContext{
+		m.executeHook(Error, HookContext{
 			Message: fmt.Sprintf("failed to unmarshal new config: %v", err),
 		})
 		return errors.New(fmt.Sprintf("failed to unmarshal new config: %v", err))
@@ -27,7 +27,7 @@ func (m *Manager[T]) Unmarshal() error {
 		changes := make(map[string][2]any)
 
 		if !compareStructs(oldConfig, newConfig, "", changes) {
-			m.hooks.Handles[Error].Exec(HookContext{
+			m.executeHook(Error, HookContext{
 				Message: "config type mismatch, changes blocked",
 			})
 			return errors.New(fmt.Sprintf("config type mismatch, changes blocked"))
@@ -47,6 +47,7 @@ func (m *Manager[T]) Unmarshal() error {
 //   - 触发钩子记录配置变更事件
 //   - 执行开发者提供的回调函数
 //   - 确保重载失败时保持原有配置不变
+//   - 线程安全
 func (m *Manager[T]) monitorConfigChanges(handles []HandlerFunc) {
 	m.vp.WatchConfig()
 	m.vp.OnConfigChange(func(e fsnotify.Event) {
@@ -55,15 +56,17 @@ func (m *Manager[T]) monitorConfigChanges(handles []HandlerFunc) {
 			return
 		}
 
-		// 防抖处理：忽略短时间内的重复变更
+		// 防抖处理：忽略短时间内的重复变更（使用 atomic 操作）
 		now := time.Now()
-		if now.Sub(m.lastChange) < m.debounceDur {
+		lastChangeNano := m.lastChangeNano.Load()
+		lastChangeTime := time.Unix(0, lastChangeNano)
+		if now.Sub(lastChangeTime) < m.debounceDur {
 			return
 		}
-		m.lastChange = now
+		m.lastChangeNano.Store(now.UnixNano())
 
 		// 触发钩子：检测到配置文件变更
-		m.hooks.Handles[Info].Exec(HookContext{
+		m.executeHook(Info, HookContext{
 			Message: fmt.Sprintf("[config] 检测到文件变更: %s", e.Name),
 		})
 
@@ -74,7 +77,7 @@ func (m *Manager[T]) monitorConfigChanges(handles []HandlerFunc) {
 
 		// 重新加载配置文件
 		if err := m.vp.ReadInConfig(); err != nil {
-			m.hooks.Handles[Error].Exec(HookContext{
+			m.executeHook(Error, HookContext{
 				Message: fmt.Sprintf("[config] 重新加载配置文件失败: %v", err),
 			})
 			return
@@ -87,14 +90,14 @@ func (m *Manager[T]) monitorConfigChanges(handles []HandlerFunc) {
 			m.config = oldConfig
 			m.rwMutex.Unlock()
 			
-			m.hooks.Handles[Error].Exec(HookContext{
+			m.executeHook(Error, HookContext{
 				Message: fmt.Sprintf("[config] 解析配置失败，保持原有配置: %v", err),
 			})
 			return
 		}
 
 		// 触发钩子：配置重新加载成功
-		m.hooks.Handles[Info].Exec(HookContext{
+		m.executeHook(Info, HookContext{
 			Message: "[config] 配置重新加载成功",
 		})
 

@@ -31,7 +31,7 @@ func (m *Manager[T]) ensureConfigFile(opts *Option) error {
 				return fmt.Errorf("failed to write default config file: %w", err)
 			}
 
-			m.hooks.Handles[Info].Exec(HookContext{
+			m.executeHook(Info, HookContext{
 				Message: fmt.Sprintf("[config] 默认配置文件已生成: %s", cfgFile),
 			})
 		} else {

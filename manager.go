@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/viper"
@@ -12,9 +13,11 @@ import (
 type Manager[T any] struct {
 	config              *T            // 泛型配置对象
 	vp                  *viper.Viper  // Viper 实例
-	rwMutex             sync.RWMutex  // 读写锁
-	lastChange          time.Time     // 上次触发时间（用于防抖）
-	debounceDur         time.Duration // 防抖间隔
+	rwMutex             sync.RWMutex  // 读写锁（保护 config）
+	hookMutex           sync.RWMutex  // 读写锁（保护 hooks）
+	optsMutex           sync.Mutex    // 互斥锁（保护 opts 和 optsInit）
+	lastChangeNano      atomic.Int64  // 上次触发时间的纳秒时间戳（用于防抖）
+	debounceDur         time.Duration // 防抖间隔（只在初始化时设置，之后只读）
 	hooks               *Hook         // hook
 	pathName            string        // 配置文件
 	opts                *Option       // 设置选项
@@ -32,13 +35,15 @@ type Manager[T any] struct {
 //
 //	*Manager[T]: 泛型管理器实例
 func NewManager[T any](defaultConfig T) *Manager[T] {
-	return &Manager[T]{
+	m := &Manager[T]{
 		config:        nil, // 配置将在 LoadConfig 时初始化
 		vp:            viper.New(),
-		lastChange:    time.Time{},
 		hooks:         NewHook(),
 		defaultConfig: defaultConfig,
 	}
+	// 初始化 atomic 字段
+	m.lastChangeNano.Store(0)
+	return m
 }
 
 // GetConfig 获取配置副本（类型安全）
@@ -132,15 +137,39 @@ func (m *Manager[T]) jsonDeepCopy() (T, error) {
 //	error: 如果配置失败则返回错误
 func (m *Manager[T]) setupViper() error {
 	// 确保选项已初始化
-	if !m.optsInit {
+	m.optsMutex.Lock()
+	optsInit := m.optsInit
+	m.optsMutex.Unlock()
+
+	if !optsInit {
 		m.SetOption(nil)
 	}
 
-	// 设置配置文件路径
+	// 设置配置文件路径（线程安全地读取）
+	m.optsMutex.Lock()
 	inFile := m.opts.File()
+	m.optsMutex.Unlock()
+
 	m.vp.SetConfigFile(inFile)
 
 	return nil
+}
+
+// executeHook 执行钩子处理函数（线程安全）
+// 参数：
+//   pattern: 钩子级别
+//   ctx: 钩子上下文
+// 功能：
+//   - 使用读锁保护钩子的读取
+//   - 在锁外执行钩子函数，避免死锁
+func (m *Manager[T]) executeHook(pattern HookPattern, ctx HookContext) {
+	m.hookMutex.RLock()
+	handler := m.hooks.Handles[pattern]
+	m.hookMutex.RUnlock()
+
+	if handler != nil {
+		handler(ctx)
+	}
 }
 
 // SetHook 设置钩子处理函数
@@ -153,7 +182,10 @@ func (m *Manager[T]) setupViper() error {
 //   - 支持设置不同级别的钩子
 //   - 保持现有的钩子级别（Debug, Info, Warn, Error）
 //   - 与泛型 Manager[T] 完全兼容
+//   - 线程安全
 func (m *Manager[T]) SetHook(pattern HookPattern, handler HookHandlerFunc) *Manager[T] {
+	m.hookMutex.Lock()
+	defer m.hookMutex.Unlock()
 	m.hooks.SetHook(pattern, handler)
 	return m
 }

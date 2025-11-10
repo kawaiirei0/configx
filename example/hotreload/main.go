@@ -16,6 +16,7 @@ type ServerConfig struct {
 	Host    string `mapstructure:"host"`
 	Port    int    `mapstructure:"port"`
 	Timeout int    `mapstructure:"timeout"`
+	Mode 		string `mapstructure:"mode"`
 }
 
 // AppConfig 应用配置
@@ -50,7 +51,7 @@ func main() {
 	err := manager.Init(func(ctx *configx.Context) {
 		// 配置变更时的回调函数
 		fmt.Println("\n🔄 配置文件已更新！")
-		
+
 		// 获取最新配置
 		config, err := manager.GetConfig()
 		if err != nil {
@@ -76,6 +77,8 @@ func main() {
 		log.Fatalf("获取配置失败: %v", err)
 	}
 
+	fmt.Printf("获取到了配置 Config: %v", config)
+
 	fmt.Println("\n当前配置:")
 	fmt.Printf("  服务器地址: %s:%d\n", config.Server.Host, config.Server.Port)
 	fmt.Printf("  超时时间:   %d 秒\n", config.Server.Timeout)
@@ -98,7 +101,7 @@ func main() {
 			if err != nil {
 				continue
 			}
-			fmt.Printf("\n⏰ [定期检查] 当前端口: %d, 日志级别: %s\n", 
+			fmt.Printf("\n⏰ [定期检查] 当前端口: %d, 日志级别: %s\n",
 				config.Server.Port, config.LogLevel)
 		}
 	}()
